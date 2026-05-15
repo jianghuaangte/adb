@@ -1,0 +1,51 @@
+name: Download ADB and Upload to Release
+
+on:
+  workflow_dispatch:    # 手动触发
+  schedule:
+    - cron: "0 3 * * *" # 每天 UTC 3 点自动运行
+
+jobs:
+  download-and-upload-adb:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout 仓库
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ 安装必要工具
+      - name: Install utilities
+        run: |
+          sudo apt update
+          sudo apt install -y curl unzip gh
+
+      # 3️⃣ 下载最新 ADB (Platform Tools)
+      - name: Download ADB latest
+        run: |
+          mkdir -p adb-downloads
+
+          # Windows
+          curl -L -o adb-downloads/platform-tools-windows.zip https://dl.google.com/android/repository/platform-tools-latest-windows.zip
+          # macOS
+          curl -L -o adb-downloads/platform-tools-macos.zip https://dl.google.com/android/repository/platform-tools-latest-darwin.zip
+          # Linux
+          curl -L -o adb-downloads/platform-tools-linux.zip https://dl.google.com/android/repository/platform-tools-latest-linux.zip
+
+      # 4️⃣ 上传到 GitHub Release
+      - name: Upload ADB to Release
+        run: |
+          tag="latest-adb"
+          
+          # 如果 release 不存在就创建
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "ADB Latest Platform Tools" --notes "Daily sync of latest Android Platform Tools (ADB) for all OS"
+          fi
+          
+          # 上传 ZIP 文件
+          for file in adb-downloads/*.zip; do
+            echo "Uploading $file ..."
+            gh release upload "$tag" "$file" --clobber
+          done
+        env:
+          GH_TOKEN: ${{ secrets.JIANG_PAT_TOKEN }}
